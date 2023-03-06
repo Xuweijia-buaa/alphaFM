@@ -26,19 +26,20 @@ string predict_help()
 template<typename T>
 int predict(const predictor_option& opt)
 {
-    ftrl_predictor<T> predictor(opt);
+    ftrl_predictor<T> predictor(opt);          // 加载训好的模型，打开输出流
     pc_frame frame;
-    frame.init(predictor, opt.threads_num);
+    frame.init(predictor, opt.threads_num); // 同样启动多线程处理。输入样本照样从cin流（先是文本）按行读入(格式同train)
     frame.run();
     return 0;
 }
 
-
+// cat sample | ./fm_predict -m fm_model.txt -out predict.txt
 int main(int argc, char* argv[])
 {
     static_assert(sizeof(void *) == 8, "only 64-bit code generation is supported.");
-    cin.sync_with_stdio(false);
+    cin.sync_with_stdio(false);//
     cout.sync_with_stdio(false);
+    // 解析入参
     predictor_option opt;
     try
     {
@@ -50,6 +51,7 @@ int main(int argc, char* argv[])
         cerr << predict_help() << endl;
         return 1;
     }
+    // 预测
     if("float" == opt.model_number_type)
     {
         return predict<float>(opt);

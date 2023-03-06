@@ -5,7 +5,7 @@
 #include "predict_model.h"
 #include "../Sample/fm_sample.h"
 
-
+// 指定要加载的模型，类型
 struct predictor_option
 {
     predictor_option() : factor_num(8), threads_num(1), model_format("txt") {}
@@ -66,7 +66,7 @@ struct predictor_option
     }
 };
 
-
+// 同样继承pc_task
 template<typename T>
 class ftrl_predictor : public pc_task
 {
@@ -76,8 +76,8 @@ public:
     virtual void run_task(vector<string>& dataBuffer);
     
 private:
-    predict_model<T>* pModel;
-    ofstream fPredict;
+    predict_model<T>* pModel;// 加载训好的模型
+    ofstream fPredict;// 输出流
     mutex outMtx;
 };
 
@@ -85,6 +85,7 @@ private:
 template<typename T>
 ftrl_predictor<T>::ftrl_predictor(const predictor_option& opt)
 {
+    // 加载训好的模型
     pModel = new predict_model<T>(opt.factor_num);
     cout << "load model..." << endl;
     if(!pModel->load_model(opt.model_path, opt.model_format))
@@ -93,6 +94,7 @@ ftrl_predictor<T>::ftrl_predictor(const predictor_option& opt)
         exit(1);
     }
     cout << "model loading finished" << endl;
+    // 打开输出文件准备写
     fPredict.open(opt.predict_path, ofstream::out);
     if(!fPredict)
     {
@@ -108,21 +110,23 @@ ftrl_predictor<T>::~ftrl_predictor()
     fPredict.close();
 }
 
-
+// 被frame调用. con_thread里
+// 核心预测函数，处理输入的测试样本。每行一个样本 ()
 template<typename T>
 void ftrl_predictor<T>::run_task(vector<string>& dataBuffer)
 {
     vector<string> outputVec(dataBuffer.size());
     for(size_t i = 0; i < dataBuffer.size(); ++i)
     {
-        fm_sample sample(dataBuffer[i]);
+        fm_sample sample(dataBuffer[i]);   // 得到每个预测样本
+        // 计算该样本得分：(输入样本和模型，输出逻辑回归后的score)
         double score = pModel->get_score(sample.x, pModel->muBias->wi, pModel->muMap);
         outputVec[i] = to_string(sample.y) + " " + to_string(score);
     }
     outMtx.lock();
     for(size_t i = 0; i < outputVec.size(); ++i)
     {
-        fPredict << outputVec[i] << endl;
+        fPredict << outputVec[i] << endl;        // 每个样本： 真实label（1、-1）  score(0-1之间的sigmoid后的结果)
     }
     outMtx.unlock();
 }

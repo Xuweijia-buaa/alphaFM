@@ -10,8 +10,8 @@ using std::vector;
 class pc_task
 {
 public:
-    pc_task(){}
-    virtual void run_task(vector<string>& dataBuffer) = 0;
+    pc_task(){}                                             // 构造函数
+    virtual void run_task(vector<string>& dataBuffer) = 0;  // 虚函数。子类可覆盖。传入数据dataBuffer是vector<string>&，包含训练样本
 };
 
 

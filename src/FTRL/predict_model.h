@@ -15,7 +15,7 @@
 
 using namespace std;
 
-//每一个特征维度的模型单元
+//每一个特征维度的模型单元,用模型参数初始化。但预测只用value
 template<typename T>
 class predict_model_unit
 {
@@ -29,6 +29,7 @@ private:
     static int factor_num;
 
 public:
+    // 算好每个特征unit所需的内存空间
     static void static_init(int _factor_num)
     {
         factor_num = _factor_num;
@@ -42,7 +43,7 @@ public:
             cerr << "predict_model_unit::static_init: padding size exception" << endl;
             exit(1);
         }
-        ext_mem_size = (int)(_factor_num * sizeof(T)) - (int)padding;
+        ext_mem_size = (int)(_factor_num * sizeof(T)) - (int)padding;  // 除了wi的value，就是特征向量
     }
     
     
@@ -61,13 +62,13 @@ public:
         return pInstance;
     }
     
-    
+    // 把该行参数写入wi和v中
     static bool parse_txt_model_line(int _factor_num, const vector<string>& modelLineSeg, double& _wi, vector<double>& _vi)
     {
         bool res = false;
-        _wi = stod(modelLineSeg[1]);
+        _wi = stod(modelLineSeg[1]);              // 一阶特征参数（或者bias）
         if(0.0 != _wi) res = true;
-        for(int f = 0; f < _factor_num; ++f)
+        for(int f = 0; f < _factor_num; ++f)          // 该特征对应的特征向量
         {
             _vi[f] = stod(modelLineSeg[2 + f]);
             if(0.0 != _vi[f]) res = true;
@@ -79,7 +80,7 @@ public:
     predict_model_unit()
     {}
     
-    
+    // 用模型参数初始化（text）
     void instance_init(int _factor_num, double _wi, const vector<double>& _vi)
     {
         wi = _wi;
@@ -149,32 +150,37 @@ predict_model<T>::predict_model(int _factor_num)
 {
     factor_num = _factor_num;
     muBias = NULL;
-    predict_model_unit<T>::static_init(_factor_num);
+    predict_model_unit<T>::static_init(_factor_num);  // 初始化一个特征unit
 }
 
 
+// 预测每个样本的得分
+// x： 待预测单样本的(特征：取值) 序列
+// bias,theta:模型本身
 template<typename T>
 double predict_model<T>::get_score(const vector<pair<string, double> >& x, double bias, predict_hash_map<T>& theta)
 {
     double result = 0;
     result += bias;
-    for(int i = 0; i < x.size(); ++i)
+    for(int i = 0; i < x.size(); ++i) // 每个特征
     {
-        result += get_wi(theta, x[i].first) * x[i].second;
+        // get_wi(theta, x[i].first): 特征（x[i].first）对应的一阶参数wi
+        result += get_wi(theta, x[i].first) * x[i].second;  // xi * wi
     }
     double sum, sum_sqr, d;
-    for(int f = 0; f < factor_num; ++f)
+    for(int f = 0; f < factor_num; ++f)  // 线沿着i计算，再sum_f
     {
         sum = sum_sqr = 0.0;
         for(int i = 0; i < x.size(); ++i)
         {
-            d = get_vif(theta, x[i].first, f) * x[i].second;
-            sum += d;
-            sum_sqr += d * d;
+            // get_vif(theta, x[i].first, f): 特征i对应特征向量的第f维参数
+            d = get_vif(theta, x[i].first, f) * x[i].second;      // vif * xi
+            sum += d;                                                // sum_i  vif * xi
+            sum_sqr += d * d;                                        // sum_i  (vif * xi)^2
         }
-        result += 0.5 * (sum * sum - sum_sqr);
+        result += 0.5 * (sum * sum - sum_sqr);                       // sum f
     }
-    return 1.0/(1.0 + exp(-result));
+    return 1.0/(1.0 + exp(-result));                                 // sigmoid(同逻辑回归)
 }
 
 
@@ -247,7 +253,7 @@ bool predict_model<T>::load_txt_model(ifstream& in)
     {
         return false;
     }
-    vector<string> strVec;
+    vector<string> strVec;   // 每行的所有元素
     utils::split_string(line, ' ', &strVec);
     if(strVec.size() != 4)
     {
@@ -255,6 +261,7 @@ bool predict_model<T>::load_txt_model(ifstream& in)
     }
     double _wi = 0;
     vector<double> _vi(0);
+    // 把该行参数写入wi和v中，初始化bias unit
     predict_model_unit<T>::parse_txt_model_line(0, strVec, _wi, _vi);
     muBias = predict_model_unit<T>::create_instance(0, _wi, _vi);
     _vi.resize(factor_num);
@@ -266,11 +273,12 @@ bool predict_model<T>::load_txt_model(ifstream& in)
         {
             return false;
         }
+        // 把该行参数(特征)写入wi和v中,初始化特征unit
         if(predict_model_unit<T>::parse_txt_model_line(factor_num, strVec, _wi, _vi))
         {
             string& index = strVec[0];
             char* pKey = create_fea_c_str(index.c_str());
-            muMap[pKey].instance_init(factor_num, _wi, _vi);
+            muMap[pKey].instance_init(factor_num, _wi, _vi);     // 每个特征对应的特征unit
         }
     }
     return true;

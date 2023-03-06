@@ -3,17 +3,19 @@
 #include "utils.h"
 
 const double kPrecision = 0.0000000001;
+// 按分隔符分割string
 void utils::split_string(string& line, char delimiter, vector<string>* r)
 {
     int begin = 0;
     for(int i = 0; i < line.size(); ++i)
     {
-        if(line[i] == delimiter)
+        if(line[i] == delimiter)  // 每遇到一个分隔符，记录[begin,此刻]
         {
-            (*r).push_back(line.substr(begin, i - begin));
+            (*r).push_back(line.substr(begin, i - begin));  // start from begin ,length==i-begin   *r:该vector
             begin = i + 1;
         }
     }
+    // 最后一个substr
     if(begin < line.size())
     {
         (*r).push_back(line.substr(begin, line.size() - begin));

@@ -1,0 +1,3 @@
+/media/xuweijia/DATA/代码/github代码学习/alphaFM/cmake-build-debug/CMakeFiles/edit_cache.dir
+/media/xuweijia/DATA/代码/github代码学习/alphaFM/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/media/xuweijia/DATA/代码/github代码学习/alphaFM/cmake-build-debug/CMakeFiles/alphaFM.dir
