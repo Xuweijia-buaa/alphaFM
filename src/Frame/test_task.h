@@ -5,6 +5,8 @@
 #include "pc_task.h"
 using namespace std;
 
+
+// 单纯打印出来。可以用来测试消费者线程送给任务的输入数据是否正确。
 class test_task : public pc_task
 {
 public:

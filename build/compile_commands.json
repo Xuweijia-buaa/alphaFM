@@ -1,0 +1,20 @@
+[
+{
+  "directory": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/build",
+  "command": "/bin/x86_64-linux-gnu-g++-9  -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Frame -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/FTRL -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Lock -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Mem -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Sample -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Utils -g -std=gnu++14   -Wall -g -o CMakeFiles/alphaFM.dir/src/Frame/pc_frame.cpp.o -c /media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Frame/pc_frame.cpp",
+  "file": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Frame/pc_frame.cpp",
+  "output": "CMakeFiles/alphaFM.dir/src/Frame/pc_frame.cpp.o"
+},
+{
+  "directory": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/build",
+  "command": "/bin/x86_64-linux-gnu-g++-9  -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Frame -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/FTRL -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Lock -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Mem -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Sample -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Utils -g -std=gnu++14   -Wall -g -o CMakeFiles/alphaFM.dir/src/Utils/utils.cpp.o -c /media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Utils/utils.cpp",
+  "file": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Utils/utils.cpp",
+  "output": "CMakeFiles/alphaFM.dir/src/Utils/utils.cpp.o"
+},
+{
+  "directory": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/build",
+  "command": "/bin/x86_64-linux-gnu-g++-9  -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Frame -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/FTRL -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Lock -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Mem -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Sample -I/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/src/Utils -g -std=gnu++14   -Wall -g -o CMakeFiles/alphaFM.dir/fm_train.cpp.o -c /media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/fm_train.cpp",
+  "file": "/media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/fm_train.cpp",
+  "output": "CMakeFiles/alphaFM.dir/fm_train.cpp.o"
+}
+]

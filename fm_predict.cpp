@@ -33,6 +33,10 @@ int predict(const predictor_option& opt)
     return 0;
 }
 
+// 10个线程计算，factorization的维度是8，加载模型文件fm_model.txt，最后输出预测结果文件fm_pre.txt
+// hadoop fs -cat test_data_hdfs_path | ./fm_predict -core 10 -dim 8 -m fm_model.txt -out 
+
+
 // cat sample | ./fm_predict -m fm_model.txt -out predict.txt
 int main(int argc, char* argv[])
 {

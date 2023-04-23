@@ -11,6 +11,8 @@ using namespace std;
 
 //U is double or float
 template<typename T, typename U, template<typename> class MODEL_UNIT>
+// MODEL_UNIT: 是每个特征对应的一个unit
+// map中每个节点，是该特征对应的kv: std::pair<const char* const, MODEL_UNIT>
 class my_allocator : public allocator<T>
 {
 public:
@@ -45,17 +47,19 @@ public:
             return allocator<T>::allocate(count);
         }
         // here, count is 1, T is std::__detail::_Hash_node<std::pair<const char* const, MODEL_UNIT<U> >, false>
+        // 每次只给一个分配. <k,v>
         if(1 != count)
         {
             cerr << "my_allocator::allocate: count exception" << endl;
             exit(1);
         }
-        if(typeid(T) != typeid(std::__detail::_Hash_node<std::pair<const char* const, MODEL_UNIT<U> >, false>))
+        if(typeid(T) != typeid(std::__detail::_Hash_node<std::pair<const char* const, MODEL_UNIT<U> >, false>)) // 节点类型是<k,MODEL_UNIT>
         {
             cerr << "my_allocator::allocate: _Hash_node type exception" << endl;
             exit(1);
         }
         int mem_size = (int)sizeof(T) + MODEL_UNIT<U>::get_ext_mem_size();
+        // 每次申请64kb的堆内存(不够的情况下)。 否则从已申请的堆内存中，返回要的p-p_size大小内存中，首地址p。
         return (pointer)mem_pool::get_mem((size_t)mem_size);
     }
 

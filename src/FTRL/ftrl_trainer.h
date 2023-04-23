@@ -11,9 +11,13 @@
 struct trainer_option
 {
     // 构造函数。各参数默认取值
-    trainer_option() : k0(true), k1(true), factor_num(8), init_mean(0.0), init_stdev(0.1), w_alpha(0.05), w_beta(1.0), w_l1(0.1), w_l2(5.0),
-               v_alpha(0.05), v_beta(1.0), v_l1(0.1), v_l2(5.0), model_format("txt"), initial_model_format("txt"),
+    trainer_option() : k0(true), k1(true), 
+               factor_num(8), init_mean(0.0), init_stdev(0.1), w_alpha(0.05), w_beta(1.0), w_l1(0.1), w_l2(5.0),
+               v_alpha(0.05), v_beta(1.0), v_l1(0.1), v_l2(5.0), 
+               model_format("txt"), initial_model_format("txt"),
                threads_num(1), b_init(false), force_v_sparse(false) {}
+
+    // 各入参，作为属性。默认public.   (class里，默认priavte)           
     string model_path, model_format, init_model_path, initial_model_format, model_number_type;
     double init_mean, init_stdev;
     double w_alpha, w_beta, w_l1, w_l2;
@@ -166,13 +170,13 @@ struct trainer_option
 };
 
 
-// 用于训练的主类。继承自pc_task。是个模板类，可以是float、double
-template<typename T>
-class ftrl_trainer : public pc_task
-{
+// 用于训练的类。每个消费者线程，用来处理分配到的每批数据
+template<typename T>                                                        // 是个模板类，可以是float、double
+class ftrl_trainer : public pc_task                                         // 继承自pc_task。可用来执行消费者线程分配到的每批数据
+{ 
 public:
-    ftrl_trainer(const trainer_option& opt);//构造函数
-    virtual void run_task(vector<string>& dataBuffer);// 可重写的父类函数，默认仍是虚函数类型
+    ftrl_trainer(const trainer_option& opt);                                 //构造函数，用参数初始化。
+    virtual void run_task(vector<string>& dataBuffer);                      // 消费者线程，接收到的任务。处理这批样本。
     bool load_model(const string& modelPath, const string& modelFormat);    // 自己独有的函数
     bool output_model(const string& modelPath, const string& modelFormat);
     
@@ -189,37 +193,44 @@ private:
     bool force_v_sparse;
 };
 
-// 初始化
-// 模板函数，是这个trainer的初始化构造函。用入参初始化
+// 构造函数：用入参初始化。
+// 设置了模型参数如l1，训练超参(v稀疏化为0)，
+// 初始化model
 template<typename T>
 ftrl_trainer<T>::ftrl_trainer(const trainer_option& opt)
 {
-    w_alpha = opt.w_alpha;  // ftrl的超参数（对一阶参数）
+    // 模型超参
+    w_alpha = opt.w_alpha;  // 一阶参数的超参数（对一阶参数）
     w_beta = opt.w_beta;
     w_l1 = opt.w_l1;
     w_l2 = opt.w_l2;
-    v_alpha = opt.v_alpha;  // ftrl对向量参数的超参数
+    v_alpha = opt.v_alpha;  // 二阶参数的超参数
     v_beta = opt.v_beta;
     v_l1 = opt.v_l1;
     v_l2 = opt.v_l2;
     k0 = opt.k0;
     k1 = opt.k1;
+    // 训练超参
     force_v_sparse = opt.force_v_sparse;
-    pModel = new ftrl_model<T>(opt.factor_num, opt.init_mean, opt.init_stdev);// 初始化Model
-    pLockPool = new lock_pool();   // 新建一些锁
+    // 初始化Model（k,mean.std). 
+    // new该模型时，分配栈内存并返回对应指针。
+    pModel = new ftrl_model<T>(opt.factor_num, opt.init_mean, opt.init_stdev);// 堆上。各线程一起修改对应的模型参数
+    
+    pLockPool = new lock_pool();   // 新建一些锁，用来在线程间同步。 防止不同线程，同时修改同一特征单元对应的参数。（也建在堆上，各线程一起用）  确实不释放。
 }
 
 
-// dataBuffer: 读入的每行数据(每个元素对应一行数据line:string). 特征名是string，特征值是float/double
-//    buffer[0]：1 sex:1 age:0.3
-//    buffer[1]：0 sex:0 age:0.7
+// 每个消费者线程，处理接收到的数据。数据来自于读入的buffer,每个元素对应一个完整样本(string)
+// buffer[0]：1 sex:1 age:0.3   
+// buffer[1]：0 sex:0 age:0.7
 template<typename T>
 void ftrl_trainer<T>::run_task(vector<string>& dataBuffer)
 {
+    // dataBuffer是每个线程的私有数据，在该线程的栈内存中。
     for(size_t i = 0; i < dataBuffer.size(); ++i)
     {
-        fm_sample sample(dataBuffer[i]); // 从每行数据中获得样本[i]
-        train(sample.y, sample.x);       // 每个样本逐个训练
+        fm_sample sample(dataBuffer[i]); // 从每行数据中获得样本[i].  也是局部变量，在该线程栈内存中，不同线程独立。 
+        train(sample.y, sample.x);       // 每个样本逐个训练  (模型在堆上，所有线程同时修改)
     }
 }
 
@@ -242,13 +253,14 @@ bool ftrl_trainer<T>::output_model(const string& modelPath, const string& modelF
 // x: [(特征1:取值),(特征2:取值),...]
 // y: -1,1
 template<typename T>
-void ftrl_trainer<T>::train(int y, const vector<pair<string, double> >& x)
-{
+void ftrl_trainer<T>::train(int y, const vector<pair<string, double> >& x){
+    // 单样本x,y，都在本线程栈内存中，各线程独立。  
+    // pModel各线程共享，是new得到的，建在堆内存中。
 
-    // 对应bias这个参数 （以及2个ftrl参数）
-    ftrl_model_unit<T>* thetaBias = pModel->get_or_init_model_unit_bias(); // 得到已有的或者初始化的一个特征unit指针
+    // bias参数对应的特征单元 （含2个ftrl参数）
+    ftrl_model_unit<T>* thetaBias = pModel->get_or_init_model_unit_bias(); // 得到bias参数对应的特征unit （已有的或者初始化的）
 
-    // 该样本的每个特征都应该有一个特征unit（含该特征的所有一二阶参数，以及每个参数对应的2个ftrl参数）
+    // 该样本的每个特征都应该有一个特征unit（含该特征的所有一二阶参数，以及每个参数对应的2个ftrl参数）。 每个unit一个指针。（指针本身是局部变量）
     vector<ftrl_model_unit<T>*> theta(x.size(), NULL);
     int xLen = x.size(); // 该样本（非稀疏）特征数目
 

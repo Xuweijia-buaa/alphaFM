@@ -68,6 +68,8 @@ double utils::gaussian(double mean, double stdev)
 }
 
 
+// agrc:参数数目
+// 
 vector<string> utils::argv_to_args(int argc, char* argv[])
 {
     vector<string> args;

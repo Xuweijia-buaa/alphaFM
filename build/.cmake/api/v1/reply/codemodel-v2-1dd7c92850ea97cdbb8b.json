@@ -1,0 +1,60 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.19"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "alphaFM",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "alphaFM::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alphaFM-Debug-5dd771c7465e19d6bc22.json",
+					"name" : "alphaFM",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/media/xuweijia/DATA/\u4ee3\u7801/github\u4ee3\u7801\u5b66\u4e60/\u5927\u89c4\u6a21\u5206\u5e03\u5f0f\u7cfb\u7edf/alphaFM/build",
+		"source" : "/media/xuweijia/DATA/\u4ee3\u7801/github\u4ee3\u7801\u5b66\u4e60/\u5927\u89c4\u6a21\u5206\u5e03\u5f0f\u7cfb\u7edf/alphaFM"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 5
+	}
+}

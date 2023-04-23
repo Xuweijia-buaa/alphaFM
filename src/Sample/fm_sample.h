@@ -7,12 +7,12 @@
 
 using namespace std;
 
-// 样本类
+// 样本类。单个样本。对应输入的一行string
 class fm_sample
 {
 public:
     int y;                               // label,不论输入如何，被转化为-1,1
-    vector<pair<string, double> > x;     // (特征:取值),(特征:取值)
+    vector<pair<string, double> > x;     // x:[(特征:取值),(特征:取值)]
     fm_sample(const string& line);
 private:
     static const string spliter;

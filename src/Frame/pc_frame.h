@@ -18,23 +18,24 @@ class pc_frame
 {
 public:
     pc_frame(){}
-    // task:trainer,t_num:线程数目
-    bool init(pc_task& task, int t_num, int buf_size = 5000, int log_num = 200000);
-    void run();
+    bool init(pc_task& task, int t_num, int buf_size = 5000, int log_num = 200000);  // 按下方生产者线程，消费者线程的具体逻辑，初始化所有线程，
+                                                                                     // 并按生产者-消费者模式开始运行
+                                                                                     
+    void run();                                                                      // 线程运行后。阻塞，等待结束。
 
 private:
-    //  对buffer的读写用锁来控制,防止同一时间既读又写。但每个线程读完，处理前，会释放锁，让其他线程可以继续对buffer读写
-    //  用信号量来告诉其他线程可以读新的数据了。但是每批新数据都交给一个线程处理。
-    int threadNum;
-    pc_task* pTask;        // trainer  训练器本身
-    mutex bufMtx;
-    sem_t semPro, semCon;  // 2个信号量，用来做线程间的同步。生产者-消费者模式
-    queue<string> buffer;      // 每个元素对应输入流的一行，一次处理最多放5000行。处理完的应该是直接排队从尾部出去了？
-    vector<thread> threadVec;  // 放读取线程+10个处理线程。读取线程不停的从cin中按批读，直到结束。 每一批数据由一个线程处理（包含cin中的最多5000行）。
-    int bufSize; // 默认5000 批大小
+    //  生产者-消费者模型。用信号量和buffer来控制读取速度。
+    //  每批新数据都交给一个线程处理。但每个线程读完，处理前，会释放锁，让其他线程可以继续对buffer读写
+    mutex bufMtx;              // 单纯对buffer本身读写上的互斥锁
+    sem_t semPro, semCon;      // 2个信号量，用来做生产者-消费者线程间的同步。生产者-消费者模式
+    queue<string> buffer;      // 生产者-消费者中的buffer. 大小5000，每个元素对应一行输入(一个样本)。每个消费者每次从buffer中取完，生产者才再次放入。
+    vector<thread> threadVec;  // 放生产者消费者线程。std::thread 系统级线程。之后统一join。
+    int bufSize;               // buffer大小
     int logNum;
-    void pro_thread();   // 读取线程
-    void con_thread();   // 处理线程   主要靠信号量同步
+    void pro_thread();         // 生产者线程的具体逻辑，放到threadVec中（声明）
+    void con_thread();         // 消费者线程的具体逻辑，放到threadVec中（声明）  主要靠信号量同步
+    int threadNum;             // 消费者线程的数目
+    pc_task* pTask;            // 每个消费者线程，拿到私有数据后，要运行的任务对象本身。
 };
 
 

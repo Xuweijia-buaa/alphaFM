@@ -7,11 +7,13 @@
 using std::string;
 using std::vector;
 
+
+// 抽象类。每个消费者线程，拿到数据后，要运行的任务本身
 class pc_task
 {
 public:
     pc_task(){}                                             // 构造函数
-    virtual void run_task(vector<string>& dataBuffer) = 0;  // 虚函数。子类可覆盖。传入数据dataBuffer是vector<string>&，包含训练样本
+    virtual void run_task(vector<string>& dataBuffer) = 0;  // 每个消费者线程，拿到数据后，要运行的任务本身。每个数据对应一个样本。（虚函数，子类可定制不同任务）
 };
 
 

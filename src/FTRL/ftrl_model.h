@@ -16,7 +16,7 @@
 
 using namespace std;
 
-//每一个特征维度的模型单元
+//每一个特征对应的unit单元: 含该特征对应的一阶参数(1个)，二阶特征参数(K个)本身，以及对应的每个参数的2种累积梯度。
 template<typename T>
 class ftrl_model_unit
 {
@@ -28,9 +28,8 @@ public:
 
     
 private:
-    // 定义为size_t类型，类似int 不过每个size_t可能是4、8字节，根据平台不同。类似int
-    // 定义一些空间，放该特征的二阶参数（包括ftrl参数）
-    // 二阶参数类似。每个特征记录特征向量中每个参数的值，梯度累积量z,梯度平方累积n
+    // 该特征的二阶参数。同样含梯度累积量z,梯度平方累积n. 
+    // 所有特征单元的k,offset都是相同，所有特征的实例共享(static)。算类的特征。创建新对象时，不分配这些元素对应内存。
     static size_t offset_v;
     static size_t offset_vn;
     static size_t offset_vz;
@@ -39,16 +38,16 @@ private:
     static int factor_num;// 该特征对应的向量维度
 
 public:
-    // 初始化就会调用，计算好每个特征unit中的所有参数所需空间：一个wi,f个vi  (每个参数带了2个ftrl参数，*3)
+    // 计算特征unit所需空间：一个wi,k个vi  (*3)
     static void static_init(int _factor_num)
     {
-        factor_num = _factor_num;
+
+        factor_num = _factor_num;              // k
         offset_v = 0;
-        offset_vn = offset_v + _factor_num;    // f
-        offset_vz = offset_vn + _factor_num;   // 2f
-        class_size = sizeof(ftrl_model_unit<T>); // unit本身的大小（不算static,只有wi的3个参数）。3 * 8(double)
-        // using：指定别名。node_type是hashNode< pair<char*,ftrl_model_unit>, bool>
-        //                   对应<typename _Value, bool _Cache_hash_code>
+        offset_vn = offset_v + _factor_num;    // 2k
+        offset_vz = offset_vn + _factor_num;   // 3k
+        class_size = sizeof(ftrl_model_unit<T>); // unit中，一阶参数占用内存(字节数)。sizeof(unit)是unit对象本身的大小，不算static。
+
         // Cache_hash_code:是否连同hash_code也存着。这样比较两个对象时候就可以直接比较hash_code.
         // _Value 是 pair<char*,ftrl_model_unit>。预先分配这样的内存出来，可以根据->_M_v()得到地址
         using node_type = std::__detail::_Hash_node<std::pair<const char* const, ftrl_model_unit<T> >, false>;
@@ -86,10 +85,10 @@ public:
     static ftrl_model_unit* create_instance(int _factor_num, double v_mean, double v_stdev)
     {
         size_t mem_size = get_mem_size();
-        void* pMem = malloc(mem_size);
-        ftrl_model_unit* pInstance = new(pMem) ftrl_model_unit();
+        void* pMem = malloc(mem_size);                              // 在堆上分配
+        ftrl_model_unit* pInstance = new(pMem) ftrl_model_unit();   // 通过placement new,在这片内存上，初始化一个特征unit,并返回对应指针
         //  设置某该特征unit,每个参数的初始取值。返回该特征unit的指针
-        pInstance->instance_init(_factor_num, v_mean, v_stdev); // 按均值方差初始化该特征单元
+        pInstance->instance_init(_factor_num, v_mean, v_stdev);     // 按均值方差初始化该特征单元
         return pInstance;
     }
     
@@ -108,7 +107,7 @@ public:
     ftrl_model_unit()
     {}
     
-    // 设置该特征unit,每个参数的初始取值
+    // 设置该特征unit中：每个参数的初始取值。内存已分配好，只需要设置值。
     void instance_init(int _factor_num, double v_mean, double v_stdev)
     {
         wi = 0.0;
@@ -116,7 +115,8 @@ public:
         w_zi = 0.0;
         for(int f = 0; f < _factor_num; ++f)
         {
-            vi(f) = utils::gaussian(v_mean, v_stdev);  // 高斯分布。特征向量的每个取值
+            vi(f) = utils::gaussian(v_mean, v_stdev);  // 所需的内存，已经通过malloc分配在堆上了。
+                                                       // 该单元中，v中第k个参数vk，用offset找到地址，返回对应引用，初始化对应内存。 每个vi,高斯分布
             v_ni(f) = 0.0;
             v_zi(f) = 0.0;
         }
@@ -139,21 +139,24 @@ public:
     
     inline T& vi(size_t f) const
     {
-        char* p = (char*)this + class_size;  // 先变成按字节走的指针，走到class_size位置（一阶走完了）
-        return *((T*)p + offset_v + f);      // vi放在class_size之后，一共放F个float/double。代表该特征的特征向量
+        // 返回二阶参数中（共k个），第f个参数（的引用）。用来初始化vf
+        char* p = (char*)this + class_size;  // p:二阶参数的首地址。 this:该特征单元对象的地址。加上class_size:是走过所有一阶参数地址。
+        return *((T*)p + offset_v + f);      // vi直接放一阶参数之后。放f个T，位于p-p+f。 
+                                             // 其中第f个地址，对地址(p+f)解引用，返回。返回的是对单个vf元素的引用（还未初始化）。但内存已分配在栈中，通过malloc.
     }
     
     
     inline T& v_ni(size_t f) const
     {
-        char* p = (char*)this + class_size;   // v_ni放在vi之后，对应特征向量各参数的ftrl参数
-        return *((T*)p + offset_vn + f);
+        // 返回k个二阶参数，对应的k个v_ni中。第f个参数
+        char* p = (char*)this + class_size;   // v_ni放在vi之后，对应特征向量各参数的ftrl参数. p依然是二阶参数的首地址。
+        return *((T*)p + offset_vn + f);      // p+offset_vn(2k):  v_ni的首地址。返回之后的第f个参数。
     }
     
     
     inline T& v_zi(size_t f) const
-    {
-        char* p = (char*)this + class_size;  // v_zi放在vn_i之后，对应特征向量各参数的另一个ftrl参数
+    {   // 返回k个二阶参数，对应的k个v_zi中。第f个参数
+        char* p = (char*)this + class_size;  // v_zi放在vn_i之后，对应特征向量各参数的另一个ftrl参数 连续放。
         return *((T*)p + offset_vz + f);
     }
     
@@ -181,12 +184,15 @@ public:
     // 先打印 wi和特征向量，再打印ftrl参数
     friend inline ostream& operator <<(ostream& os, const ftrl_model_unit& mu)
     {
-        os << mu.wi;
+         // 每个参数，除了打印自身。还打印累计梯度。用于后续学习
+
+        os << mu.wi;                                            // 每个特征，对应的参数本身 （wi和k个vi）      
         for(int f = 0; f < ftrl_model_unit::factor_num; ++f)
         {
-            os << " " << mu.vi(f);
+            os << " " << mu.vi(f);                                 
         }
-        os << " " << mu.w_ni << " " << mu.w_zi;
+
+        os << " " << mu.w_ni << " " << mu.w_zi;                 // 每个参数，对应的累计梯度。用于后续学习
         for(int f = 0; f < ftrl_model_unit::factor_num; ++f)
         {
             os << " " << mu.v_ni(f);
@@ -213,10 +219,13 @@ template<typename T>
 int ftrl_model_unit<T>::factor_num;
 
 
-// 用来存所有特征的特征单元 特征名：特征unit
-// 自己写的hash和equal,分配内存单元
+// 用来存所有特征的特征单元 特征名：特征unit。  自己写的hash和equal,分配内存单元
 template<typename T>
-using my_hash_map = unordered_map<const char*, ftrl_model_unit<T>, my_hash, my_equal, my_allocator<pair<const char*, ftrl_model_unit<T> >, T, ftrl_model_unit> >;
+using my_hash_map = unordered_map<const char*, ftrl_model_unit<T>, 
+                                               my_hash, 
+                                               my_equal, 
+                                               my_allocator<pair<const char*, ftrl_model_unit<T> >, T, ftrl_model_unit>
+                                                >;
 
 
 // model类，用来实现具体的model逻辑
@@ -224,16 +233,21 @@ template<typename T>
 class ftrl_model
 {
 public:
-    ftrl_model_unit<T>* muBias; // 模型的bias对应的参数单元 （主要取wi）
-    my_hash_map<T> muMap;       // 存模型的所有特征unit.  特征名: 特征对应unit (输入样本特征名不能相同.一个样本里有新特征，会初始化一个unit给该特征)
+    // 每个模型的参数：wi, vi b
+    my_hash_map<T> muMap;       // 模型的所有特征,每个参数一个unit: {特征名: 特征对应unit}
+                                // 每个unit:含特征i的一二阶参数wi,k个vi,以及对应的累积梯度
+                                // 新特征，会初始化一个unit
 
-    int factor_num;            // vi的向量维度
-    double init_stdev;         // 指定vi如何初始化
+
+    ftrl_model_unit<T>* muBias; // 模型总的bias对应的特征unit   sum (wixi) +b   单独一个参数（对应的unit） 
+
+    int factor_num;            // 模型k
+    double init_stdev;         // 指定vi如何初始化. mean std
     double init_mean;
 
 public:
     ftrl_model(int _factor_num);
-    ftrl_model(int _factor_num, double _mean, double _stdev);  // 指定初始化维度，向量均值方差
+    ftrl_model(int _factor_num, double _mean, double _stdev);  // 构造函数：指定初始化维度，向量均值方差
     ftrl_model_unit<T>* get_or_init_model_unit(const string& index);
     ftrl_model_unit<T>* get_or_init_model_unit_bias();
 
@@ -278,33 +292,33 @@ ftrl_model<T>::ftrl_model(int _factor_num)
 template<typename T>
 ftrl_model<T>::ftrl_model(int _factor_num, double _mean, double _stdev)
 {
-    factor_num = _factor_num;// vi维度 默认是8
+    factor_num = _factor_num;// k
     init_mean = _mean;
     init_stdev = _stdev;
     muBias = NULL;
     ftrl_model_unit<T>::static_init(_factor_num); // 按vi特征维度，初始化一个ftrl_model_unit。计算好每个vi需要的空间
 }
 
-// 初始化特征init
-// 特征id: 特征对应unit
+
+// 按特征名，返回该特征对应的unit。 没有就
 template<typename T>
 ftrl_model_unit<T>* ftrl_model<T>::get_or_init_model_unit(const string& index)
 {
     auto iter = muMap.find(index.c_str());
-    if(iter == muMap.end())    // 该特征还没有unit，初始化一个
+    if(iter == muMap.end())        // 该特征还没有unit，初始化一个
     {
         mtx.lock();
         ftrl_model_unit<T>* pMU = NULL;
         iter = muMap.find(index.c_str());
         if(iter != muMap.end())
         {
-            pMU = &(iter->second);  // 上锁后，发现该特征已有对应unit，直接返回
+            pMU = &(iter->second);                                      // 上锁后，发现该特征已有对应unit（地址），直接返回
         }
         else
         {
             // 给key分配一个等长的字符串空间，作为map的key
             char* pKey = create_fea_c_str(index.c_str());
-            muMap[pKey].instance_init(factor_num, init_mean, init_stdev);// 初始化一个特征单元
+            muMap[pKey].instance_init(factor_num, init_mean, init_stdev);// 没有，初始化一个unit
             pMU = &muMap[pKey];
         }
         mtx.unlock();
@@ -312,7 +326,7 @@ ftrl_model_unit<T>* ftrl_model<T>::get_or_init_model_unit(const string& index)
     }
     else
     {
-        return &(iter->second);  // 找到该特征对应的unit，直接返回
+        return &(iter->second);                                        // 找到该特征对应的unit(地址)，直接返回
     }
 }
 
@@ -325,7 +339,8 @@ ftrl_model_unit<T>* ftrl_model<T>::get_or_init_model_unit_bias()
         mtx_bias.lock();
         if(NULL == muBias)
         {
-            // 初始化一个特征unit,每个参数的值初始化。返回该特征unit的指针
+            // 初始化一个特征unit,每个参数的值初始化。返回该特征unit的指针。
+            // 内存通过malloc+placement new分配在堆上.再依次用高斯分布初始化。
             muBias = ftrl_model_unit<T>::create_instance(0, init_mean, init_stdev);
         }
         mtx_bias.unlock();
@@ -383,19 +398,22 @@ bool ftrl_model<T>::output_model(const string& modelPath, const string& modelFor
 }
 
 // 按照固定格式，输出模型参数：
-
+// 不仅输出每个参数本身，还输出参数对应的2个累积梯度。用于后续增量学习
 template<typename T>
 bool ftrl_model<T>::output_txt_model(const string& modelPath)
+// modelPath:入参传入的模型输出路径
 {
-    ofstream out(modelPath, ofstream::out);
+    ofstream out(modelPath, ofstream::out); // 输出到out
     if(!out) return false;
     // 第一行是bias: bias  value  ni  zi
     // 其他行：(遍历map得所有特征.每行一个特征，特征无序。重载了<< )
     //             特征名  wi  特征向量（v1 v2  ... vf）  剩下是累计梯度：w_n   w_z   特征向量累积梯度（f个） 特征向量累积梯度平方（f个）
-    out << biasFeaName << " " << muBias->wi << " " << muBias->w_ni << " " << muBias->w_zi << endl;
-    for(auto iter = muMap.begin(); iter != muMap.end(); ++iter)
+
+    out << biasFeaName << " " << muBias->wi << " " << muBias->w_ni << " " << muBias->w_zi << endl;  // bias参数，和对应的2个梯度
+
+    for(auto iter = muMap.begin(); iter != muMap.end(); ++iter)                                     // 每个特征单元： 一个wi,k个vi，以及对应的梯度
     {
-        out << iter->first << " " << iter->second << endl; // 按内存中顺序打印该特征unit
+        out << iter->first << " " << iter->second << endl; // 打印每个特征的参数。  first是特征名。 second是该特征unit,<<重载，用来打印wi,vi及其累积梯度
     }
     out.close();
     return true;
@@ -465,7 +483,7 @@ bool ftrl_model<T>::load_txt_model(ifstream& in)
     {
         return false;
     }
-    muBias = ftrl_model_unit<T>::create_instance(0, strVec);  // 先读bias
+    muBias = ftrl_model_unit<T>::create_instance(0, strVec);  // 先读bias。在栈上分配内存，建bias的unit
     while(getline(in, line))
     {
         strVec.clear();

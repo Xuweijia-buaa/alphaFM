@@ -1,0 +1,1 @@
+/bin/x86_64-linux-gnu-g++-9 -g CMakeFiles/alphaFM.dir/src/Frame/pc_frame.cpp.o CMakeFiles/alphaFM.dir/src/Utils/utils.cpp.o CMakeFiles/alphaFM.dir/fm_train.cpp.o -o /media/xuweijia/DATA/代码/github代码学习/大规模分布式系统/alphaFM/bin/alphaFM  -lpthread 

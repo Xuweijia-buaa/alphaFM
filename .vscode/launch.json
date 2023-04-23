@@ -1,0 +1,35 @@
+// 调试程序的时候用到的
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/alphaFM",    // 要调试的可执行文件路径.一定要是build任务生成的。比如task.json中配置的cmake任务生成的。
+            "args": ["-m","model.txt","-core","1"],         // 传参，可以为空
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "build",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
+// {
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "externalConsole": true,
+//             "miDebuggerPath": "C:/MinGW/bin/gdb.exe",
+//         }
+//     ]
+// }
